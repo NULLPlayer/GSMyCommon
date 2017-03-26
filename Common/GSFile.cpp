@@ -61,6 +61,21 @@ GSString GSFile::GetFileName( void )
 
 #define MAX_FILE_BUFFER (1024)
 
+size_t GSFile::Read( void* buf, size_t nByte )
+{
+	GS_ASSERT_RET_VAL(IsOpen(), 0);
+
+	size_t nRetReadByte = 0;
+	size_t nReadByte = 0;
+	while (nByte != 0 && (nReadByte = gsfread(buffer, 1, nByte, m_pFile))) {
+		buf += nReadByte;
+		nByte -= nReadByte;
+		nRetReadByte += nReadByte;
+	}
+
+	return nRetReadByte;
+}
+
 bool GSFile::ReadAll( GSString& data )
 {
 	GS_ASSERT_RET_VAL(IsOpen(), false);
@@ -70,29 +85,33 @@ bool GSFile::ReadAll( GSString& data )
 	if (gsfseek(m_pFile, 0, SEEK_END) != 0) {
 		return false;
 	}
-	Int64 file_len = gsftell(m_pFile);
+	Int64 nFileSize = gsftell(m_pFile);
 	if (gsfseek(m_pFile, 0, SEEK_SET) != 0) {
 		return false;
 	}
 #else
-	Int64 file_len = GSGetFileSize(m_strFullName.c_str());
+	Int64 nFileSize = GSGetFileSize(m_strFullName.c_str());
 #endif // USE_C_STL
 
 	gsfseek(m_pFile, 0, SEEK_SET); // 从头开始
-	UInt8 buffer[MAX_FILE_BUFFER] = {0};
-	size_t byte_read = 0;
-	while ((byte_read = gsfread(buffer, 1, MAX_FILE_BUFFER, m_pFile))) {
-		data.append((const char*)buffer, byte_read);
+	UInt8 bBuffer[MAX_FILE_BUFFER] = {0};
+	size_t nReadByte = 0;
+	while ((nFileSize > 0) && (nReadByte = gsfread(bBuffer, 1, MAX_FILE_BUFFER, m_pFile))) {
+		//if (nReadByte < 0) {
+		//	return false;
+		//}
+		data.append((const char*)bBuffer, nReadByte);
+		nFileSize -= nReadByte;
 	}
 
 	// 需要测试两者性能
 	//while (!gsfeof(m_pFile)) {
-	//	gsfread(buffer, MAX_FILE_BUFFER, 1, m_pFile);
+	//	gsfread(bBuffer, MAX_FILE_BUFFER, 1, m_pFile);
 	//	if (MAX_FILE_BUFFER > file_len) {
-	//		data.append(buffer, file_len);
+	//		data.append(buffer, nFileSize);
 	//	} else {
 	//		data.append(buffer, MAX_FILE_BUFFER);
-	//		file_len -= MAX_FILE_BUFFER;
+	//		nFileSize -= MAX_FILE_BUFFER;
 	//	}
 	//}
 
@@ -111,15 +130,15 @@ bool GSFile::Write( const GSString& data )
 	return Write(data.c_str(), data.size());
 }
 
-bool GSFile::Write( const char* data, size_t len )
+bool GSFile::Write( const void* buf, size_t nByte )
 {
-	GS_ASSERT_RET_VAL(data && IsOpen(), false);
+	GS_ASSERT_RET_VAL(buf && IsOpen(), false);
 
-	size_t byte_write = gsfwrite(data, 1, len, m_pFile);
+	size_t byte_write = gsfwrite(buf, 1, nByte, m_pFile);
 	if (byte_write == 0) { // 调用不成功
 		return false;
 	}
-	if (byte_write != len) { // 没有写完
+	if (byte_write != nByte) { // 没有写完
 		return false;
 	}
 

@@ -26,9 +26,10 @@ public:
 
 	GSString GetFileName(void);
 
+	size_t Read(void* buf, size_t nByte);
 	bool ReadAll(GSString& data);
 	bool Write(const GSString& data);
-	bool Write(const char* data, size_t len);
+	bool Write(const void* buf, size_t nByte);
 
 	bool IsOpen(void);
 
